@@ -2093,11 +2093,12 @@
                     welcomeScreen.classList.add('hidden');
                 }
 
-                // 强制隐藏游戏结束覆盖层
+                // 隐藏游戏结束覆盖层
                 const gameOverOverlay = document.getElementById('game-over-overlay');
                 if (gameOverOverlay) {
-                    gameOverOverlay.style.display = 'none';
                     gameOverOverlay.classList.remove('show');
+                    // 移除强制的display样式，让CSS类控制显示
+                    gameOverOverlay.style.display = '';
                 }
 
                 // 如果游戏已结束且网格中有方块，启动粉碎动画
