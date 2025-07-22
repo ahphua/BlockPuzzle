@@ -1452,6 +1452,35 @@
             }
         }
 
+        // 显示游戏结束覆盖层的专门函数
+        function showGameOverOverlay() {
+            console.log('Showing game over overlay');
+            
+            try {
+                const gameOverOverlay = document.getElementById('game-over-overlay');
+                if (gameOverOverlay) {
+                    // 确保覆盖层可见
+                    gameOverOverlay.style.display = 'flex';
+                    gameOverOverlay.classList.add('show');
+                    
+                    // 更新音效按钮状态
+                    const soundStatus = document.getElementById('sound-status');
+                    if (soundStatus) {
+                        soundStatus.textContent = soundEnabled ? 'On' : 'Off';
+                    }
+                    
+                    // 更新方块模式按钮状态
+                    updateBlockModeButtons();
+                    
+                    console.log('Game over overlay displayed successfully');
+                } else {
+                    console.error('Game over overlay element not found');
+                }
+            } catch (error) {
+                console.error('Error showing game over overlay:', error);
+            }
+        }
+
         // 启动炸弹动画
         function startBombAnimation() {
             bombAnimation.active = true;
@@ -1499,14 +1528,8 @@
                     bombAnimation.phase = 'finished';
                     bombAnimation.active = false;
 
-                    // 显示游戏结束覆盖层
-                    document.getElementById('game-over-overlay').classList.add('show');
-
-                    // 更新音效按钮状态
-                    document.getElementById('sound-status').textContent = soundEnabled ? 'On' : 'Off';
-
-                    // 更新方块模式按钮状态
-                    updateBlockModeButtons();
+                    // 使用专门的函数显示游戏结束覆盖层
+                    showGameOverOverlay();
                 }
             }
         }
@@ -2591,6 +2614,25 @@
 
             startBombAnimation(); // 启动炸弹爆炸动画
             updateUI();
+
+            // iOS特殊处理：添加备用定时器确保游戏结束界面显示
+            if (IS_IOS) {
+                console.log('iOS detected, setting backup timer for game over overlay');
+                setTimeout(() => {
+                    if (gameOver && !document.getElementById('game-over-overlay').classList.contains('show')) {
+                        console.log('iOS backup: Showing game over overlay');
+                        showGameOverOverlay();
+                    }
+                }, 3000); // 3秒后备用显示
+            }
+
+            // 额外的iOS修复：立即检查并显示游戏结束界面
+            setTimeout(() => {
+                if (gameOver) {
+                    console.log('Additional iOS fix: Force showing game over overlay');
+                    showGameOverOverlay();
+                }
+            }, 100); // 100ms后立即检查
         }
 
         // 检查方块是否可以放置在网格的任何位置
