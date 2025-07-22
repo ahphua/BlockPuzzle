@@ -82,7 +82,7 @@
             /* 防止滚动 */
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
             -webkit-overflow-scrolling: touch;
             /* iOS 平滑滚动 */
         }
@@ -118,6 +118,8 @@
             min-height: 0;
             /* 允许flex收缩 */
             position: relative;
+            width: 100%;
+            max-width: 100%;
         }
 
         /* 游戏开始前的欢迎界面 */
@@ -126,9 +128,8 @@
             top: 0;
             left: 0;
             right: 0;
-
-
-            background-color: #000;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.9);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -234,9 +235,14 @@
         }
 
         .controls {
-            margin-top: 10px;
+            margin-top: 20px;
             flex-shrink: 0;
             /* 防止压缩 */
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
         }
 
         /* 移动设备上的控制按钮优化 */
@@ -283,21 +289,23 @@
             background-color: #4CAF50;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 24px;
             font-size: 16px;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
-            margin: 0 10px;
+            margin: 8px;
             /* iOS触摸优化 */
             -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
             -webkit-user-select: none;
             user-select: none;
             touch-action: manipulation;
-            min-height: 44px;
+            min-height: 48px;
             /* iOS推荐的最小触摸目标 */
-            min-width: 44px;
+            min-width: 120px;
             -webkit-appearance: none;
             appearance: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
 
         button:hover,
@@ -1128,12 +1136,12 @@
                 CELL_SIZE = Math.max(CELL_SIZE, 40); // 平板最小40px
 
             } else {
-                // 桌面设备 - 10x10网格
-                CANVAS_WIDTH = Math.min(availableWidth * 0.9, 1200);
-                CANVAS_HEIGHT = Math.min(availableHeight * 0.8, 800);
+                // 桌面设备 - 10x10网格，优化尺寸避免右边黑色区域
+                CANVAS_WIDTH = Math.min(availableWidth * 0.95, 900); // 减小宽度
+                CANVAS_HEIGHT = Math.min(availableHeight * 0.85, 700); // 减小高度
 
-                let gridAreaWidth = CANVAS_WIDTH * 0.65;
-                let gridAreaHeight = CANVAS_HEIGHT * 0.75;
+                let gridAreaWidth = CANVAS_WIDTH * 0.8; // 增加网格占比
+                let gridAreaHeight = CANVAS_HEIGHT * 0.8; // 增加网格占比
                 let maxGridSize = Math.min(gridAreaWidth, gridAreaHeight);
                 CELL_SIZE = Math.floor(maxGridSize / GRID_SIZE);
                 CELL_SIZE = Math.max(CELL_SIZE, 35); // 桌面最小35px
@@ -1755,8 +1763,8 @@
                 }
             }
 
-            // 播放粉碎音效
-            playShatterSound();
+            // 播放爆炸音效
+            playExplosionSound();
         }
 
         // 创建方块粉碎粒子 - 向四个方向强力喷发
