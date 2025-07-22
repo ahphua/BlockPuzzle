@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>生成游戏图标</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        canvas { border: 1px solid #ccc; margin: 10px; }
+        .icon-container { display: flex; flex-wrap: wrap; gap: 20px; }
+        .icon-item { text-align: center; }
+        button { padding: 10px 20px; margin: 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Block Puzzle 游戏图标生成器</h1>
+    <p>点击下面的按钮生成并下载游戏图标：</p>
+    
+    <div class="icon-container">
+        <div class="icon-item">
+            <canvas id="icon192" width="192" height="192"></canvas>
+            <br>
+            <button onclick="downloadIcon('icon192', 'icon-192.png')">下载 192x192</button>
+        </div>
+        <div class="icon-item">
+            <canvas id="icon512" width="512" height="512"></canvas>
+            <br>
+            <button onclick="downloadIcon('icon512', 'icon-512.png')">下载 512x512</button>
+        </div>
+    </div>
+
+    <script>
+        function createIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // 背景渐变
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#ffb3d9');
+            gradient.addColorStop(1, '#ff80cc');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // 绘制方块图案
+            const blockSize = size / 8;
+            const colors = ['#FF1744', '#00E676', '#2196F3', '#FF9800'];
+            
+            // 绘制几个彩色方块
+            const blocks = [
+                {x: 1, y: 1, color: colors[0]},
+                {x: 2, y: 1, color: colors[0]},
+                {x: 1, y: 2, color: colors[0]},
+                
+                {x: 4, y: 2, color: colors[1]},
+                {x: 5, y: 2, color: colors[1]},
+                {x: 6, y: 2, color: colors[1]},
+                {x: 7, y: 2, color: colors[1]},
+                
+                {x: 2, y: 4, color: colors[2]},
+                {x: 3, y: 4, color: colors[2]},
+                {x: 2, y: 5, color: colors[2]},
+                {x: 3, y: 5, color: colors[2]},
+                
+                {x: 5, y: 5, color: colors[3]},
+                {x: 6, y: 5, color: colors[3]},
+                {x: 5, y: 6, color: colors[3]}
+            ];
+            
+            blocks.forEach(block => {
+                ctx.fillStyle = block.color;
+                ctx.fillRect(block.x * blockSize, block.y * blockSize, blockSize, blockSize);
+                
+                // 添加边框
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(block.x * blockSize, block.y * blockSize, blockSize, blockSize);
+            });
+            
+            // 添加标题文字
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size/12}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('BLOCK', size/2, size * 0.85);
+            ctx.fillText('PUZZLE', size/2, size * 0.95);
+        }
+        
+        function downloadIcon(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // 生成图标
+        createIcon('icon192', 192);
+        createIcon('icon512', 512);
+    </script>
+</body>
+</html>

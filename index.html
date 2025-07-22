@@ -1,0 +1,2663 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <title>My Block Puzzle</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./manifest.json">
+    
+    <!-- iOS specific meta tags -->
+    <meta name="apple-mobile-web-app-title" content="Block Puzzle">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+    
+    <!-- Theme colors -->
+    <meta name="theme-color" content="#ffb3d9">
+    <meta name="msapplication-TileColor" content="#ffb3d9">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+            background-color: #ffb3d9;
+            /* 粉红色背景 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            /* iOS Safari 修复 */
+            overflow: hidden;
+            /* 隐藏所有滚动条 */
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            height: -webkit-fill-available;
+            /* iOS Safari 修复 */
+            -webkit-user-select: none;
+            /* iOS 禁用文本选择 */
+            user-select: none;
+            /* 标准属性 */
+            -webkit-touch-callout: none;
+            /* iOS 禁用长按菜单 */
+        }
+
+        /* 隐藏所有滚动条 */
+        html,
+        body {
+            scrollbar-width: none;
+            /* Firefox */
+            -ms-overflow-style: none;
+            /* IE and Edge */
+        }
+
+        html::-webkit-scrollbar,
+        body::-webkit-scrollbar {
+            display: none;
+            /* Chrome, Safari, Opera */
+        }
+
+        .game-container {
+            text-align: center;
+            background-color: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100vw;
+            height: 100vh;
+            height: -webkit-fill-available;
+            /* iOS Safari 修复 */
+            max-width: none;
+            max-height: none;
+            box-sizing: border-box;
+            overflow: hidden;
+            /* 防止滚动 */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            -webkit-overflow-scrolling: touch;
+            /* iOS 平滑滚动 */
+        }
+
+        /* 移动设备优化 */
+        @media (max-width: 768px) {
+            .game-container {
+                border-radius: 0;
+                /* 移动设备去掉圆角，充满屏幕 */
+                padding: 5px;
+            }
+
+            /* 防止移动设备上的触摸滚动 */
+            body {
+                touch-action: none;
+                -webkit-overflow-scrolling: none;
+            }
+        }
+
+        /* 防止所有元素的滚动 */
+        * {
+            -webkit-overflow-scrolling: none;
+            overscroll-behavior: none;
+        }
+
+        /* Canvas容器 */
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            min-height: 0;
+            /* 允许flex收缩 */
+            position: relative;
+        }
+
+        /* 游戏开始前的欢迎界面 */
+        .welcome-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+
+
+            background-color: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .welcome-screen.hidden {
+            display: none;
+        }
+
+        .welcome-text {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        /* 游戏中的控制按钮（隐藏状态） */
+        .controls.game-running {
+            display: none;
+        }
+
+        /* 游戏结束覆盖层 */
+        .game-over-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        .game-over-overlay.show {
+            display: flex;
+        }
+
+        .game-over-text {
+            color: #f44336;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* 确保canvas不会导致滚动 */
+        canvas {
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            max-width: 100%;
+            max-height: 100%;
+            display: block !important;
+            background-color: #000;
+            -webkit-transform: translateZ(0);
+            /* iOS 硬件加速 */
+            transform: translateZ(0);
+            -webkit-backface-visibility: hidden;
+            /* iOS 性能优化 */
+            backface-visibility: hidden;
+        }
+
+        /* 确保game-canvas容器可见 */
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: relative;
+            -webkit-transform: translateZ(0);
+            /* iOS 硬件加速 */
+            transform: translateZ(0);
+        }
+
+        .game-info {
+            margin-bottom: 10px;
+            font-size: 18px;
+            flex-shrink: 0;
+            /* 防止压缩 */
+        }
+
+        /* 移动设备上的游戏信息优化 */
+        @media (max-width: 768px) {
+            .game-info {
+                margin-bottom: 5px;
+                font-size: 16px;
+            }
+
+            .game-info h1 {
+                font-size: 20px;
+                margin: 5px 0;
+            }
+        }
+
+        .score {
+            color: #2196F3;
+            font-weight: bold;
+        }
+
+        .controls {
+            margin-top: 10px;
+            flex-shrink: 0;
+            /* 防止压缩 */
+        }
+
+        /* 移动设备上的控制按钮优化 */
+        @media (max-width: 768px) {
+            .controls {
+                margin-top: 5px;
+            }
+
+            .controls button {
+                padding: 12px 16px;
+                font-size: 14px;
+                margin: 5px;
+                min-height: 44px;
+                /* iOS推荐的最小触摸目标 */
+            }
+
+            .welcome-text {
+                font-size: 20px;
+                margin-bottom: 20px;
+            }
+
+            .game-over-text {
+                font-size: 24px;
+                margin-bottom: 15px;
+            }
+
+            /* 移动设备游戏信息优化 */
+            .game-info {
+                padding: 5px;
+            }
+
+            .game-info h1 {
+                font-size: 18px;
+                margin: 5px 0;
+            }
+
+            .game-info div {
+                font-size: 14px;
+                margin: 2px 0;
+            }
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 10px;
+            /* iOS触摸优化 */
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
+            min-height: 44px;
+            /* iOS推荐的最小触摸目标 */
+            min-width: 44px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        button:hover,
+        button:active,
+        button:focus {
+            background-color: #45a049;
+            outline: none;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .game-over {
+            color: #f44336;
+            font-weight: bold;
+            font-size: 20px;
+            margin: 10px 0;
+        }
+
+        .block-mode-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .mode-btn {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            font-size: 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn:hover {
+            background-color: #1976D2;
+            transform: translateY(-1px);
+        }
+
+        .mode-btn.active {
+            background-color: #FF9800;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .mode-btn.active:hover {
+            background-color: #F57C00;
+        }
+
+        /* Responsive design for mobile devices */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+
+            .game-container {
+                padding: 10px;
+                max-width: 98vw;
+            }
+
+            h1 {
+                font-size: 24px;
+                margin: 10px 0;
+            }
+
+            .game-info {
+                font-size: 14px;
+                margin: 10px 0;
+            }
+
+            button {
+                padding: 8px 12px;
+                font-size: 14px;
+                margin: 5px;
+            }
+
+            .mode-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            .controls {
+                margin-top: 15px;
+            }
+
+            .block-mode-controls {
+                margin-top: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 20px;
+            }
+
+            .game-info {
+                font-size: 12px;
+            }
+
+            button {
+                padding: 6px 10px;
+                font-size: 12px;
+                margin: 3px;
+            }
+
+            .mode-btn {
+                padding: 5px 10px;
+                font-size: 11px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="game-container">
+        <div class="game-info">
+            <h1>My Block Puzzle</h1>
+            <div class="score">Score: <span id="score">0</span></div>
+            <div>Remaining Space: <span id="remaining-space">100</span></div>
+        </div>
+        <div class="canvas-container">
+            <!-- 欢迎界面 -->
+            <div id="welcome-screen" class="welcome-screen">
+                <div class="welcome-text">Welcome to Block Puzzle!</div>
+                <div class="controls">
+                    <button id="start-btn" onclick="startGame()">Start Game</button>
+                    <button id="reset-btn" onclick="resetGame()">Reset Game</button>
+                    <button id="sound-btn" onclick="toggleSound()">Sound: On</button>
+                </div>
+                <div class="block-mode-controls" style="margin-top: 15px;">
+                    <button id="normal-btn" onclick="setBlockMode('normal')" class="mode-btn active">Normal</button>
+                    <button id="more-btn" onclick="setBlockMode('more')" class="mode-btn">More Blocks</button>
+                </div>
+            </div>
+
+            <!-- 游戏画布 -->
+            <div id="game-canvas"></div>
+
+            <!-- 游戏结束覆盖层 -->
+            <div id="game-over-overlay" class="game-over-overlay">
+                <div class="game-over-text">Game Over!</div>
+                <div class="controls">
+                    <button onclick="startGame()">Start New Game</button>
+                    <button onclick="resetGame()">Reset Game</button>
+                    <button onclick="toggleSound()">Sound: <span id="sound-status">On</span></button>
+                </div>
+                <div class="block-mode-controls" style="margin-top: 15px;">
+                    <button onclick="setBlockMode('normal')" class="mode-btn" id="normal-btn-overlay">Normal</button>
+                    <button onclick="setBlockMode('more')" class="mode-btn" id="more-btn-overlay">More Blocks</button>
+                </div>
+            </div>
+        </div>
+        <div id="hidden-controls" class="controls game-running">
+            <!-- 这些按钮在游戏运行时隐藏 -->
+        </div>
+        <div id="game-over-message" class="game-over" style="display: none;">
+            Game Over! No space to place new blocks
+        </div>
+    </div>
+
+    <script>
+        // iPhone兼容性修复 - 在所有代码之前
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('DOM loaded, setting up iPhone compatibility fixes');
+
+            // 强制为所有按钮添加触摸事件处理
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(button => {
+                // 添加触摸开始事件
+                button.addEventListener('touchstart', function (e) {
+                    console.log('Button touched:', this.textContent);
+                    e.stopPropagation();
+                }, { passive: false });
+
+                // 添加触摸结束事件来触发点击
+                button.addEventListener('touchend', function (e) {
+                    console.log('Button touch ended:', this.textContent);
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // 手动触发点击事件
+                    if (this.onclick) {
+                        this.onclick();
+                    } else {
+                        this.click();
+                    }
+                }, { passive: false });
+            });
+
+            // 特别处理开始游戏按钮
+            const startBtn = document.getElementById('start-btn');
+            if (startBtn) {
+                console.log('Setting up start button with enhanced iPhone support');
+
+                // 移除原有的onclick，用事件监听器替代
+                startBtn.removeAttribute('onclick');
+
+                // 添加多种事件监听器确保兼容性
+                startBtn.addEventListener('click', function (e) {
+                    console.log('Start button clicked via click event');
+                    e.preventDefault();
+                    startGame();
+                });
+
+                startBtn.addEventListener('touchend', function (e) {
+                    console.log('Start button touched via touchend event');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startGame();
+                });
+            }
+
+            // 处理其他按钮的iPhone兼容性
+            const resetBtn = document.getElementById('reset-btn');
+            if (resetBtn) {
+                resetBtn.removeAttribute('onclick');
+                resetBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    resetGame();
+                });
+                resetBtn.addEventListener('touchend', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    resetGame();
+                });
+            }
+
+            const soundBtn = document.getElementById('sound-btn');
+            if (soundBtn) {
+                soundBtn.removeAttribute('onclick');
+                soundBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    toggleSound();
+                });
+                soundBtn.addEventListener('touchend', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleSound();
+                });
+            }
+
+            // 处理模式按钮
+            const normalBtn = document.getElementById('normal-btn');
+            if (normalBtn) {
+                normalBtn.removeAttribute('onclick');
+                normalBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    setBlockMode('normal');
+                });
+                normalBtn.addEventListener('touchend', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setBlockMode('normal');
+                });
+            }
+
+            const moreBtn = document.getElementById('more-btn');
+            if (moreBtn) {
+                moreBtn.removeAttribute('onclick');
+                moreBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    setBlockMode('more');
+                });
+                moreBtn.addEventListener('touchend', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setBlockMode('more');
+                });
+            }
+
+            // 处理游戏结束覆盖层中的按钮
+            setTimeout(() => {
+                // 游戏结束覆盖层中的按钮
+                const gameOverButtons = document.querySelectorAll('#game-over-overlay button');
+                gameOverButtons.forEach(button => {
+                    const originalOnclick = button.getAttribute('onclick');
+                    if (originalOnclick) {
+                        button.removeAttribute('onclick');
+
+                        // 根据原始onclick内容设置新的事件处理器
+                        if (originalOnclick.includes('startGame')) {
+                            button.addEventListener('click', function (e) {
+                                e.preventDefault();
+                                startGame();
+                            });
+                            button.addEventListener('touchend', function (e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                startGame();
+                            });
+                        } else if (originalOnclick.includes('resetGame')) {
+                            button.addEventListener('click', function (e) {
+                                e.preventDefault();
+                                resetGame();
+                            });
+                            button.addEventListener('touchend', function (e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                resetGame();
+                            });
+                        } else if (originalOnclick.includes('toggleSound')) {
+                            button.addEventListener('click', function (e) {
+                                e.preventDefault();
+                                toggleSound();
+                            });
+                            button.addEventListener('touchend', function (e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toggleSound();
+                            });
+                        } else if (originalOnclick.includes('setBlockMode')) {
+                            const mode = originalOnclick.includes('normal') ? 'normal' : 'more';
+                            button.addEventListener('click', function (e) {
+                                e.preventDefault();
+                                setBlockMode(mode);
+                            });
+                            button.addEventListener('touchend', function (e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setBlockMode(mode);
+                            });
+                        }
+                    }
+                });
+            }, 100);
+
+            // 添加全局错误处理
+            window.addEventListener('error', function (e) {
+                console.error('Global error:', e.error, e.message, e.filename, e.lineno);
+            });
+
+            // 添加未处理的Promise拒绝处理
+            window.addEventListener('unhandledrejection', function (e) {
+                console.error('Unhandled promise rejection:', e.reason);
+            });
+
+            console.log('iPhone compatibility setup completed');
+            
+            // 注册Service Worker for PWA支持
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('./sw.js')
+                        .then(function(registration) {
+                            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                        })
+                        .catch(function(err) {
+                            console.log('ServiceWorker registration failed: ', err);
+                        });
+                });
+            }
+        });
+
+        // 游戏配置
+        let GRID_SIZE = 10; // 将根据设备类型动态设置
+        let CELL_SIZE = 40; // 将在setup中动态计算
+        let CANVAS_WIDTH = 1200;
+        let CANVAS_HEIGHT = 800;
+        let GRID_OFFSET_X = 50;
+        let GRID_OFFSET_Y = 50;
+        let IS_MOBILE = false; // 是否为移动设备
+        let IS_IOS = false; // 是否为iOS设备
+
+        // 游戏状态
+        let gameGrid = [];
+        let currentScore = 0;
+
+        // 新的打分系统变量
+        let consecutiveClearRounds = 0; // 连续清除回合数
+        let lastRoundCleared = false; // 上一回合是否有清除
+        let gameStarted = false;
+        let gameOver = false;
+        let currentBlocks = [];
+        let selectedBlock = null;
+        let dragOffset = { x: 0, y: 0 };
+        let mobileBlockOffset = 0; // 手机版方块上移距离
+
+        // 动画系统
+        let clearingAnimation = {
+            active: false,
+            linesToClear: [],
+            currentStep: 0,
+            animationSpeed: 100, // 毫秒
+            lastAnimationTime: 0,
+            particles: []
+        };
+
+        // 炸弹爆炸动画系统
+        let bombAnimation = {
+            active: false,
+            bomb: null,
+            explosionParticles: [],
+            phase: 'falling', // 'falling', 'exploding', 'finished'
+            startTime: 0
+        };
+
+        // 方块粉碎动画系统
+        let blockShatterAnimation = {
+            active: false,
+            particles: [],
+            gridFadeBlocks: [], // 网格中正在淡出的方块
+            startTime: 0,
+            duration: 3000, // 3秒动画，确保完全消失
+            fadeOutDuration: 1500 // 1.5秒淡出时间
+        };
+
+        // Audio system
+        let audioContext;
+        let soundEnabled = true;
+
+        // Initialize audio system
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log('AudioContext created, state:', audioContext.state);
+
+                // iOS需要用户交互后才能启用音频
+                if (audioContext.state === 'suspended') {
+                    console.log('AudioContext is suspended, will resume on user interaction');
+
+                    // 多种方式监听用户交互
+                    const resumeAudio = () => {
+                        if (audioContext && audioContext.state === 'suspended') {
+                            audioContext.resume().then(() => {
+                                console.log('AudioContext resumed successfully');
+                            }).catch(err => {
+                                console.error('Failed to resume AudioContext:', err);
+                            });
+                        }
+                    };
+
+                    // 监听多种事件类型，包括按钮点击
+                    document.addEventListener('touchstart', resumeAudio, { once: true });
+                    document.addEventListener('click', resumeAudio, { once: true });
+                    document.addEventListener('keydown', resumeAudio, { once: true });
+
+                    // 特别为开始游戏按钮添加音频恢复
+                    const startBtn = document.getElementById('start-btn');
+                    if (startBtn) {
+                        startBtn.addEventListener('click', resumeAudio, { once: true });
+                        startBtn.addEventListener('touchstart', resumeAudio, { once: true });
+                    }
+                }
+            } catch (e) {
+                console.log('Web Audio API not supported:', e);
+                soundEnabled = false;
+            }
+        }
+
+        // Play clear sound effect
+        function playClearSound() {
+            if (!soundEnabled || !audioContext) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // Set sound parameters
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.3);
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+            oscillator.type = 'sine';
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        }
+
+        // Play block placement sound effect
+        function playPlaceSound() {
+            if (!soundEnabled || !audioContext) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+            oscillator.type = 'square';
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        // Play game over sound effect
+        function playGameOverSound() {
+            if (!soundEnabled || !audioContext) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // Descending sad tone
+            oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 1.0);
+
+            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.0);
+
+            oscillator.type = 'sawtooth';
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 1.0);
+        }
+
+        // Play explosion sound effect
+        function playExplosionSound() {
+            if (!soundEnabled || !audioContext) return;
+
+            // Create white noise explosion effect
+            const bufferSize = audioContext.sampleRate * 0.5; // 0.5 seconds
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            // Generate white noise
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+            }
+
+            const source = audioContext.createBufferSource();
+            const gainNode = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+
+            source.buffer = buffer;
+            source.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // Low-pass filter to simulate explosion rumble
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1000, audioContext.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.5);
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            source.start(audioContext.currentTime);
+        }
+
+        // Play cute start game sound effect
+        function playStartGameSound() {
+            if (!soundEnabled || !audioContext) return;
+
+            // Create a cheerful ascending melody
+            const notes = [
+                { freq: 523.25, time: 0.0, duration: 0.15 },   // C5
+                { freq: 659.25, time: 0.1, duration: 0.15 },   // E5
+                { freq: 783.99, time: 0.2, duration: 0.15 },   // G5
+                { freq: 1046.5, time: 0.3, duration: 0.3 }     // C6
+            ];
+
+            notes.forEach(note => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                // Cute bell-like sound
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(note.freq, audioContext.currentTime + note.time);
+
+                // Envelope for cute sound
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime + note.time);
+                gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + note.time + 0.02);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + note.time + note.duration);
+
+                oscillator.start(audioContext.currentTime + note.time);
+                oscillator.stop(audioContext.currentTime + note.time + note.duration);
+            });
+
+            // Add a subtle harmony
+            setTimeout(() => {
+                const harmonyOsc = audioContext.createOscillator();
+                const harmonyGain = audioContext.createGain();
+
+                harmonyOsc.connect(harmonyGain);
+                harmonyGain.connect(audioContext.destination);
+
+                harmonyOsc.type = 'triangle';
+                harmonyOsc.frequency.setValueAtTime(1046.5, audioContext.currentTime); // C6
+                harmonyOsc.frequency.exponentialRampToValueAtTime(1318.5, audioContext.currentTime + 0.4); // E6
+
+                harmonyGain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                harmonyGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+
+                harmonyOsc.start(audioContext.currentTime);
+                harmonyOsc.stop(audioContext.currentTime + 0.4);
+            }, 300);
+        }
+
+        // Block colors - vibrant colors
+        const BLOCK_COLORS = [
+            '#FF1744', '#00E676', '#2196F3', '#FF9800',
+            '#E91E63', '#9C27B0', '#00BCD4', '#FFEB3B'
+        ];
+
+        // Game mode
+        let currentBlockMode = 'normal'; // 'normal' or 'more'
+
+        // Normal block shapes (classic Tetris-like)
+        const NORMAL_BLOCK_SHAPES = [
+            // I-shape (line)
+            [[1, 1, 1, 1]],
+            [[1], [1], [1], [1]],
+
+            // O-shape (square)
+            [[1, 1], [1, 1]],
+
+            // T-shape
+            [[0, 1, 0], [1, 1, 1]],
+            [[1, 0], [1, 1], [1, 0]],
+            [[1, 1, 1], [0, 1, 0]],
+            [[0, 1], [1, 1], [0, 1]],
+
+            // L-shape
+            [[1, 0], [1, 0], [1, 1]],
+            [[1, 1, 1], [1, 0, 0]],
+            [[1, 1], [0, 1], [0, 1]],
+            [[0, 0, 1], [1, 1, 1]],
+
+            // J-shape (reverse L)
+            [[0, 1], [0, 1], [1, 1]],
+            [[1, 0, 0], [1, 1, 1]],
+            [[1, 1], [1, 0], [1, 0]],
+            [[1, 1, 1], [0, 0, 1]],
+
+            // S-shape
+            [[0, 1, 1], [1, 1, 0]],
+            [[1, 0], [1, 1], [0, 1]],
+
+            // Z-shape
+            [[1, 1, 0], [0, 1, 1]],
+            [[0, 1], [1, 1], [1, 0]],
+
+            // Single blocks
+            [[1]],
+            [[1, 1]],
+            [[1], [1]],
+            [[1, 1, 1]],
+            [[1], [1], [1]]
+        ];
+
+        // Extended block shapes (more complex and varied)
+        const MORE_BLOCK_SHAPES = [
+            // All normal shapes first
+            ...NORMAL_BLOCK_SHAPES,
+
+            // Extended I-shape variations
+            [[1, 1, 1, 1, 1]],                 // Long line
+            [[1], [1], [1], [1], [1]],         // Long vertical line
+
+            // Extended squares and rectangles
+            [[1, 1, 1], [1, 1, 1], [1, 1, 1]], // 3x3 square
+            [[1, 1, 1], [1, 1, 1]],            // 3x2 rectangle
+            [[1, 1], [1, 1], [1, 1]],          // 2x3 rectangle
+
+            // Plus/Cross shapes
+            [[0, 1, 0], [1, 1, 1], [0, 1, 0]], // Plus sign
+            [[1, 0, 1], [0, 1, 0], [1, 0, 1]], // X shape
+
+            // Corner shapes
+            [[1, 1], [1, 0]],                  // Small corner
+            [[1, 1, 1], [1, 0, 0], [1, 0, 0]], // Large corner
+            [[0, 0, 1], [0, 0, 1], [1, 1, 1]], // Reverse corner
+
+            // Step shapes
+            [[1, 0, 0], [1, 1, 0], [0, 1, 1]], // Step right
+            [[0, 0, 1], [0, 1, 1], [1, 1, 0]], // Step left
+
+            // U-shapes
+            [[1, 0, 1], [1, 1, 1]],            // U shape
+            [[1, 1], [1, 0], [1, 1]],          // Vertical U
+
+            // Diagonal shapes
+            [[1, 0, 0], [0, 1, 0], [0, 0, 1]], // Diagonal line
+            [[0, 0, 1], [0, 1, 0], [1, 0, 0]], // Reverse diagonal
+
+            // Arrow shapes
+            [[0, 1, 0], [1, 1, 1], [0, 1, 0], [0, 1, 0]], // Arrow up
+            [[0, 0, 1], [1, 1, 1], [0, 0, 1]],             // Arrow right
+
+            // Zigzag shapes
+            [[1, 0, 1], [0, 1, 0], [1, 0, 1]], // Zigzag
+            [[0, 1, 0], [1, 0, 1], [0, 1, 0]], // Reverse zigzag
+
+            // Hammer shapes
+            [[1, 1, 1], [0, 1, 0], [0, 1, 0]], // Hammer shape
+            [[0, 1, 0], [0, 1, 0], [1, 1, 1]], // Reverse hammer
+
+            // Complex snake shapes
+            [[1, 1, 0], [0, 1, 0], [0, 1, 1]], // Snake
+            [[0, 1, 1], [0, 1, 0], [1, 1, 0]], // Reverse snake
+            [[1, 0, 1], [1, 1, 1], [1, 0, 1]], // Star shape
+        ];
+
+        // Get current block shapes based on mode
+        function getCurrentBlockShapes() {
+            return currentBlockMode === 'normal' ? NORMAL_BLOCK_SHAPES : MORE_BLOCK_SHAPES;
+        }
+
+        function setup() {
+            console.log('Setup called');
+
+            // 先检测设备类型
+            calculateResponsiveDimensions();
+
+            console.log('Setup - Screen:', window.innerWidth, 'x', window.innerHeight);
+            console.log('Setup - IS_MOBILE:', IS_MOBILE, 'IS_IOS:', IS_IOS);
+            console.log('Setup - GRID_SIZE:', GRID_SIZE, 'CELL_SIZE:', CELL_SIZE);
+
+            let canvas = createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+            canvas.parent('game-canvas');
+
+            // 确保canvas可见
+            canvas.style('display', 'block');
+
+            // 移动设备设置 - 延迟执行确保canvas已创建
+            if (IS_MOBILE) {
+                console.log('Mobile device detected, applying touch settings');
+
+                setTimeout(() => {
+                    const canvas = document.querySelector('canvas');
+                    if (canvas) {
+                        console.log('Canvas found, adding touch event listeners');
+
+                        // 只在canvas上添加触摸事件处理
+                        canvas.addEventListener('touchstart', function (e) {
+                            if (gameStarted && !gameOver) {
+                                // 设置p5.js的鼠标位置
+                                const rect = canvas.getBoundingClientRect();
+                                const touch = e.touches[0];
+                                window.mouseX = touch.clientX - rect.left;
+                                window.mouseY = touch.clientY - rect.top;
+
+                                mousePressed();
+                                e.preventDefault();
+                            }
+                        }, { passive: false });
+
+                        canvas.addEventListener('touchend', function (e) {
+                            if (gameStarted && !gameOver) {
+                                mouseReleased();
+                                e.preventDefault();
+                            }
+                        }, { passive: false });
+
+                        canvas.addEventListener('touchmove', function (e) {
+                            if (gameStarted && !gameOver) {
+                                // 更新p5.js的鼠标位置
+                                const rect = canvas.getBoundingClientRect();
+                                const touch = e.touches[0];
+                                window.mouseX = touch.clientX - rect.left;
+                                window.mouseY = touch.clientY - rect.top;
+
+                                e.preventDefault();
+                            }
+                        }, { passive: false });
+                    } else {
+                        console.error('Canvas not found!');
+                    }
+                }, 100);
+            }
+
+            // Initialize audio system
+            initAudio();
+
+            initializeGame();
+
+            // 确保游戏开始时显示欢迎界面
+            document.getElementById('welcome-screen').classList.remove('hidden');
+            document.getElementById('game-over-overlay').classList.remove('show');
+
+            // 更新按钮状态
+            updateBlockModeButtons();
+
+            console.log('Setup completed');
+        }
+
+        // Calculate responsive dimensions
+        function calculateResponsiveDimensions() {
+            // 获取实际可用的屏幕尺寸
+            const availableWidth = window.innerWidth;
+            const availableHeight = window.innerHeight;
+
+            // 判断是否为移动设备和iOS设备
+            IS_MOBILE = availableWidth <= 768;
+            IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+            // 根据设备类型设置网格大小
+            if (IS_MOBILE) {
+                GRID_SIZE = 8; // 手机使用8x8网格
+            } else {
+                GRID_SIZE = 10; // PC使用10x10网格
+            }
+
+            // 针对移动设备的优化处理
+            if (availableWidth <= 480) {
+                // 小屏手机 - 8x8网格，方块在下方
+                CANVAS_WIDTH = availableWidth - 20; // 留出边距
+                CANVAS_HEIGHT = availableHeight - 150; // 留出UI空间
+
+                // 为8x8网格计算更大的单元格
+                let gridAreaWidth = CANVAS_WIDTH * 0.9; // 网格占90%宽度
+                let gridAreaHeight = CANVAS_HEIGHT * 0.6; // 网格占60%高度，为下方方块留空间
+                let maxGridSize = Math.min(gridAreaWidth, gridAreaHeight);
+                CELL_SIZE = Math.floor(maxGridSize / GRID_SIZE);
+                CELL_SIZE = Math.max(CELL_SIZE, 35); // 手机最小35px，更容易点击
+
+            } else if (availableWidth <= 768) {
+                // 大屏手机/平板 - 8x8网格
+                CANVAS_WIDTH = Math.min(availableWidth * 0.95, 700);
+                CANVAS_HEIGHT = Math.min(availableHeight * 0.85, 700);
+
+                let gridAreaWidth = CANVAS_WIDTH * 0.85;
+                let gridAreaHeight = CANVAS_HEIGHT * 0.65;
+                let maxGridSize = Math.min(gridAreaWidth, gridAreaHeight);
+                CELL_SIZE = Math.floor(maxGridSize / GRID_SIZE);
+                CELL_SIZE = Math.max(CELL_SIZE, 40); // 平板最小40px
+
+            } else {
+                // 桌面设备 - 10x10网格
+                CANVAS_WIDTH = Math.min(availableWidth * 0.9, 1200);
+                CANVAS_HEIGHT = Math.min(availableHeight * 0.8, 800);
+
+                let gridAreaWidth = CANVAS_WIDTH * 0.65;
+                let gridAreaHeight = CANVAS_HEIGHT * 0.75;
+                let maxGridSize = Math.min(gridAreaWidth, gridAreaHeight);
+                CELL_SIZE = Math.floor(maxGridSize / GRID_SIZE);
+                CELL_SIZE = Math.max(CELL_SIZE, 35); // 桌面最小35px
+            }
+
+            // 居中网格
+            const gridWidth = GRID_SIZE * CELL_SIZE;
+            const gridHeight = GRID_SIZE * CELL_SIZE;
+
+            if (IS_MOBILE) {
+                // 移动设备：网格居中上方，方块区域在下方
+                GRID_OFFSET_X = (CANVAS_WIDTH - gridWidth) / 2;
+                GRID_OFFSET_Y = 30; // 顶部留间距
+            } else {
+                // 桌面：网格在左侧，方块在右侧
+                GRID_OFFSET_X = (CANVAS_WIDTH - gridWidth) / 4;
+                GRID_OFFSET_Y = (CANVAS_HEIGHT - gridHeight) / 2;
+            }
+        }
+
+        // Handle window resize
+        function windowResized() {
+            let oldGridSize = GRID_SIZE;
+            calculateResponsiveDimensions();
+            resizeCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // 如果网格大小改变了，需要重新初始化游戏
+            if (oldGridSize !== GRID_SIZE && gameStarted) {
+                initializeGame();
+                generateNewBlocks();
+            }
+        }
+
+        function draw() {
+            background('#000000'); // Black background
+
+            if (gameStarted) {
+                drawGrid();
+                drawCurrentBlocks();
+
+                if (selectedBlock) {
+                    drawDraggedBlock();
+                }
+
+                // Handle clearing animation
+                if (clearingAnimation.active) {
+                    updateClearingAnimation();
+                }
+
+                // Handle bomb animation
+                if (bombAnimation.active) {
+                    updateBombAnimation();
+                    drawBombAnimation();
+                }
+
+                // Handle block shatter animation
+                if (blockShatterAnimation.active) {
+                    updateBlockShatterAnimation();
+                    drawBlockShatterAnimation();
+                }
+
+                // Draw particle effects
+                drawParticles();
+            } else {
+                // iOS需要显示一些内容来确保canvas正在工作
+                if (IS_IOS) {
+                    fill(255, 255, 255, 50);
+                    textAlign(CENTER, CENTER);
+                    textSize(16);
+                    text('Loading...', width / 2, height / 2);
+                }
+            }
+
+            updateUI();
+        }
+
+        // Initialize game
+        function initializeGame() {
+            // Initialize grid
+            gameGrid = [];
+            for (let i = 0; i < GRID_SIZE; i++) {
+                gameGrid[i] = [];
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    gameGrid[i][j] = 0;
+                }
+            }
+
+            currentScore = 0;
+            gameOver = false;
+            currentBlocks = [];
+            selectedBlock = null;
+
+            // 重置新打分系统变量
+            consecutiveClearRounds = 0;
+            lastRoundCleared = false;
+
+            updateUI();
+        }
+
+        // Draw grid
+        function drawGrid() {
+            stroke(200);
+            strokeWeight(1);
+
+            // Draw grid lines
+            for (let i = 0; i <= GRID_SIZE; i++) {
+                line(GRID_OFFSET_X + i * CELL_SIZE, GRID_OFFSET_Y,
+                    GRID_OFFSET_X + i * CELL_SIZE, GRID_OFFSET_Y + GRID_SIZE * CELL_SIZE);
+                line(GRID_OFFSET_X, GRID_OFFSET_Y + i * CELL_SIZE,
+                    GRID_OFFSET_X + GRID_SIZE * CELL_SIZE, GRID_OFFSET_Y + i * CELL_SIZE);
+            }
+
+            // Draw placed blocks
+            if (blockShatterAnimation.active) {
+                // 在粉碎动画期间，绘制淡出的方块
+                for (let fadeBlock of blockShatterAnimation.gridFadeBlocks) {
+                    let color = BLOCK_COLORS[fadeBlock.colorIndex - 1];
+                    fill(red(color), green(color), blue(color), fadeBlock.alpha);
+                    noStroke();
+                    rect(GRID_OFFSET_X + fadeBlock.gridX * CELL_SIZE + 1,
+                        GRID_OFFSET_Y + fadeBlock.gridY * CELL_SIZE + 1,
+                        CELL_SIZE - 2, CELL_SIZE - 2);
+                }
+            } else {
+                // 正常游戏时，绘制普通方块
+                for (let i = 0; i < GRID_SIZE; i++) {
+                    for (let j = 0; j < GRID_SIZE; j++) {
+                        if (gameGrid[i][j] > 0) {
+                            fill(BLOCK_COLORS[gameGrid[i][j] - 1]);
+                            noStroke();
+                            rect(GRID_OFFSET_X + j * CELL_SIZE + 1,
+                                GRID_OFFSET_Y + i * CELL_SIZE + 1,
+                                CELL_SIZE - 2, CELL_SIZE - 2);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Draw current available blocks
+        function drawCurrentBlocks() {
+
+
+            if (IS_MOBILE) {
+                // 移动设备：方块显示在网格下方，水平排列，对齐网格边界
+                let gridBottom = GRID_OFFSET_Y + GRID_SIZE * CELL_SIZE;
+                let blockAreaY = gridBottom + 30; // 网格下方30px开始
+
+                // 使用网格的左右边界来排列方块
+                let gridLeft = GRID_OFFSET_X;
+                let gridRight = GRID_OFFSET_X + GRID_SIZE * CELL_SIZE;
+                let availableWidth = gridRight - gridLeft;
+                let blockSpacing = availableWidth / 3; // 三个方块平均分布在网格宽度内
+
+
+
+                for (let i = 0; i < currentBlocks.length; i++) {
+                    if (currentBlocks[i] && selectedBlock !== currentBlocks[i]) {
+                        // 计算方块的实际宽度
+                        let blockWidth = currentBlocks[i].shape[0].length * CELL_SIZE;
+                        // 在每个区域内居中方块
+                        let blockX = gridLeft + (i * blockSpacing) + (blockSpacing - blockWidth) / 2;
+
+                        drawBlock(currentBlocks[i], blockX, blockAreaY);
+                    }
+                }
+            } else {
+                // 桌面设备：方块显示在网格右侧，垂直排列
+                let startX = GRID_OFFSET_X + GRID_SIZE * CELL_SIZE + 40;
+                let startY = GRID_OFFSET_Y;
+
+                // 根据网格大小调整方块位置
+                let gridHeight = GRID_SIZE * CELL_SIZE;
+                let positions = [
+                    startY + gridHeight * 0.1,           // 1st block position
+                    startY + gridHeight * 0.4,           // 2nd block position
+                    startY + gridHeight * 0.7            // 3rd block position
+                ];
+
+                for (let i = 0; i < currentBlocks.length; i++) {
+                    if (currentBlocks[i] && selectedBlock !== currentBlocks[i]) {
+                        drawBlock(currentBlocks[i], startX, positions[i]);
+                    }
+                }
+            }
+        }
+
+        // Draw single block - 可爱风格
+        function drawBlock(block, x, y) {
+            for (let i = 0; i < block.shape.length; i++) {
+                for (let j = 0; j < block.shape[i].length; j++) {
+                    if (block.shape[i][j] === 1) {
+                        let cellX = x + j * CELL_SIZE;
+                        let cellY = y + i * CELL_SIZE;
+                        let cellSize = CELL_SIZE - 4;
+
+                        // 绘制可爱的方块
+                        drawCuteBlock(cellX + 2, cellY + 2, cellSize, block.color);
+                    }
+                }
+            }
+        }
+
+        // 绘制可爱的单个方块单元
+        function drawCuteBlock(x, y, size, color) {
+            push();
+
+            // 主体颜色
+            fill(color);
+            noStroke();
+            rect(x, y, size, size, size * 0.2); // 圆角
+
+            // 高光效果
+            fill(255, 255, 255, 100);
+            rect(x + size * 0.1, y + size * 0.1, size * 0.3, size * 0.3, size * 0.1);
+
+            // 阴影效果
+            fill(0, 0, 0, 50);
+            rect(x + size * 0.05, y + size * 0.8, size * 0.9, size * 0.15, size * 0.05);
+
+            pop();
+        }
+
+        // 绘制拖拽中的方块
+        function drawDraggedBlock() {
+            if (selectedBlock) {
+                // 手机版：方块在手指上方显示，避免遮挡
+                let offsetY = IS_MOBILE ? mobileBlockOffset : 0;
+                drawBlock(selectedBlock, mouseX + dragOffset.x, mouseY + dragOffset.y + offsetY);
+            }
+        }
+
+        // 更新消除动画
+        function updateClearingAnimation() {
+            if (millis() - clearingAnimation.lastAnimationTime > clearingAnimation.animationSpeed) {
+                if (clearingAnimation.currentStep < 10) {
+                    // 从左到右逐个消除方块
+                    for (let line of clearingAnimation.linesToClear) {
+                        if (line.type === 'row') {
+                            let col = clearingAnimation.currentStep;
+                            if (col < GRID_SIZE && gameGrid[line.index][col] > 0) {
+                                // 创建粒子效果
+                                createParticles(col, line.index);
+                                // 清除方块
+                                gameGrid[line.index][col] = 0;
+                            }
+                        } else if (line.type === 'col') {
+                            let row = clearingAnimation.currentStep;
+                            if (row < GRID_SIZE && gameGrid[row][line.index] > 0) {
+                                // 创建粒子效果
+                                createParticles(line.index, row);
+                                // 清除方块
+                                gameGrid[row][line.index] = 0;
+                            }
+                        }
+                    }
+
+                    clearingAnimation.currentStep++;
+                    clearingAnimation.lastAnimationTime = millis();
+                } else {
+                    // 动画结束
+                    clearingAnimation.active = false;
+                    clearingAnimation.linesToClear = [];
+                    clearingAnimation.currentStep = 0;
+                }
+            }
+        }
+
+        // 创建粒子效果
+        function createParticles(gridX, gridY) {
+            let x = GRID_OFFSET_X + gridX * CELL_SIZE + CELL_SIZE / 2;
+            let y = GRID_OFFSET_Y + gridY * CELL_SIZE + CELL_SIZE / 2;
+
+            // 创建多个粒子
+            for (let i = 0; i < 8; i++) {
+                clearingAnimation.particles.push({
+                    x: x,
+                    y: y,
+                    vx: random(-3, 3),
+                    vy: random(-3, 3),
+                    life: 30,
+                    maxLife: 30,
+                    color: BLOCK_COLORS[Math.floor(Math.random() * BLOCK_COLORS.length)]
+                });
+            }
+        }
+
+        // 绘制粒子效果
+        function drawParticles() {
+            for (let i = clearingAnimation.particles.length - 1; i >= 0; i--) {
+                let particle = clearingAnimation.particles[i];
+
+                // 更新粒子位置
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.life--;
+
+                // 绘制粒子
+                let alpha = map(particle.life, 0, particle.maxLife, 0, 255);
+                fill(red(particle.color), green(particle.color), blue(particle.color), alpha);
+                noStroke();
+                circle(particle.x, particle.y, 4);
+
+                // 移除死亡的粒子
+                if (particle.life <= 0) {
+                    clearingAnimation.particles.splice(i, 1);
+                }
+            }
+        }
+
+        // 启动炸弹动画
+        function startBombAnimation() {
+            bombAnimation.active = true;
+            bombAnimation.phase = 'falling';
+            bombAnimation.startTime = millis();
+            bombAnimation.explosionParticles = [];
+
+            // 创建大炸弹对象 (5x5格子大小)
+            let bombSize = CELL_SIZE * 5;
+            bombAnimation.bomb = {
+                x: CANVAS_WIDTH / 2,
+                y: -bombSize,
+                vx: 0,
+                vy: 3,
+                size: bombSize,
+                rotation: 0
+            };
+
+            // 播放游戏结束音效
+            playGameOverSound();
+        }
+
+        // 更新炸弹动画
+        function updateBombAnimation() {
+            if (bombAnimation.phase === 'falling') {
+                // 炸弹下落
+                bombAnimation.bomb.y += bombAnimation.bomb.vy;
+                bombAnimation.bomb.vy += 0.2; // 重力加速度
+                bombAnimation.bomb.rotation += 0.1;
+
+                // 检查是否到达网格中心
+                let gridCenterY = GRID_OFFSET_Y + (GRID_SIZE * CELL_SIZE) / 2;
+                if (bombAnimation.bomb.y >= gridCenterY) {
+                    bombAnimation.phase = 'exploding';
+                    bombAnimation.startTime = millis();
+                    createExplosion(bombAnimation.bomb.x, bombAnimation.bomb.y);
+                    playExplosionSound();
+                }
+            } else if (bombAnimation.phase === 'exploding') {
+                // 更新爆炸粒子
+                updateExplosionParticles();
+
+                // 检查爆炸是否结束
+                if (millis() - bombAnimation.startTime > 2000) { // 2秒后结束
+                    bombAnimation.phase = 'finished';
+                    bombAnimation.active = false;
+
+                    // 显示游戏结束覆盖层
+                    document.getElementById('game-over-overlay').classList.add('show');
+
+                    // 更新音效按钮状态
+                    document.getElementById('sound-status').textContent = soundEnabled ? 'On' : 'Off';
+
+                    // 更新方块模式按钮状态
+                    updateBlockModeButtons();
+                }
+            }
+        }
+
+        // 绘制炸弹动画
+        function drawBombAnimation() {
+            if (bombAnimation.phase === 'falling') {
+                // 绘制下落的大炸弹
+                push();
+                translate(bombAnimation.bomb.x, bombAnimation.bomb.y);
+                rotate(bombAnimation.bomb.rotation);
+
+                // 炸弹阴影效果
+                fill(0, 0, 0, 100);
+                noStroke();
+                ellipse(5, 5, bombAnimation.bomb.size * 1.1, bombAnimation.bomb.size * 1.1);
+
+                // 炸弹主体（黑色圆形，带渐变效果）
+                fill(30);
+                stroke(200);
+                strokeWeight(4);
+                circle(0, 0, bombAnimation.bomb.size);
+
+                // 炸弹高光
+                fill(80);
+                noStroke();
+                circle(-bombAnimation.bomb.size * 0.2, -bombAnimation.bomb.size * 0.2, bombAnimation.bomb.size * 0.3);
+
+                // 炸弹引线（更粗更明显）
+                stroke(255, 100, 0);
+                strokeWeight(6);
+                let fuseLength = bombAnimation.bomb.size * 0.4;
+                line(0, -bombAnimation.bomb.size / 2, 0, -bombAnimation.bomb.size / 2 - fuseLength);
+
+                // 引线火花效果（更大更亮）
+                for (let i = 0; i < 5; i++) {
+                    fill(255, 150 + random(100), random(50));
+                    noStroke();
+                    let sparkX = random(-8, 8);
+                    let sparkY = -bombAnimation.bomb.size / 2 - fuseLength + random(-5, 5);
+                    circle(sparkX, sparkY, random(3, 8));
+                }
+
+                // 炸弹上的"BOMB"文字
+                fill(255);
+                textAlign(CENTER, CENTER);
+                textSize(bombAnimation.bomb.size * 0.15);
+                text('BOMB', 0, bombAnimation.bomb.size * 0.1);
+
+                pop();
+
+                // 下落时的空气扰动效果
+                for (let i = 0; i < 3; i++) {
+                    stroke(255, 255, 255, 50);
+                    strokeWeight(2);
+                    noFill();
+                    let offset = i * 20;
+                    ellipse(bombAnimation.bomb.x, bombAnimation.bomb.y + bombAnimation.bomb.size / 2 + offset,
+                        bombAnimation.bomb.size + offset, 10);
+                }
+
+            } else if (bombAnimation.phase === 'exploding') {
+                // 绘制爆炸粒子
+                drawExplosionParticles();
+            }
+        }
+
+        // 创建大规模爆炸效果
+        function createExplosion(x, y) {
+            // 创建多层爆炸粒子，向四面八方喷发
+
+            // 第一层：大型火焰粒子
+            for (let i = 0; i < 80; i++) {
+                let angle = random(0, TWO_PI);
+                let speed = random(8, 15);
+                let size = random(15, 30);
+
+                bombAnimation.explosionParticles.push({
+                    x: x,
+                    y: y,
+                    vx: cos(angle) * speed,
+                    vy: sin(angle) * speed,
+                    size: size,
+                    life: 80,
+                    maxLife: 80,
+                    color: random(['#FF2222', '#FF6600', '#FF8800', '#FFAA00']),
+                    type: 'fire'
+                });
+            }
+
+            // 第二层：中型爆炸碎片
+            for (let i = 0; i < 60; i++) {
+                let angle = random(0, TWO_PI);
+                let speed = random(5, 12);
+                let size = random(8, 20);
+
+                bombAnimation.explosionParticles.push({
+                    x: x,
+                    y: y,
+                    vx: cos(angle) * speed,
+                    vy: sin(angle) * speed,
+                    size: size,
+                    life: 100,
+                    maxLife: 100,
+                    color: random(['#FFFF00', '#FFCC00', '#FF9900', '#FF4400']),
+                    type: 'debris'
+                });
+            }
+
+            // 第三层：小型火花
+            for (let i = 0; i < 100; i++) {
+                let angle = random(0, TWO_PI);
+                let speed = random(3, 20);
+                let size = random(3, 10);
+
+                bombAnimation.explosionParticles.push({
+                    x: x,
+                    y: y,
+                    vx: cos(angle) * speed,
+                    vy: sin(angle) * speed,
+                    size: size,
+                    life: 60,
+                    maxLife: 60,
+                    color: random(['#FFFFFF', '#FFFF88', '#FFAA44', '#FF6622']),
+                    type: 'spark'
+                });
+            }
+
+            // 第四层：烟雾效果
+            for (let i = 0; i < 40; i++) {
+                let angle = random(0, TWO_PI);
+                let speed = random(1, 6);
+                let size = random(20, 40);
+
+                bombAnimation.explosionParticles.push({
+                    x: x,
+                    y: y,
+                    vx: cos(angle) * speed,
+                    vy: sin(angle) * speed - 1, // 烟雾向上飘
+                    size: size,
+                    life: 120,
+                    maxLife: 120,
+                    color: random(['#666666', '#888888', '#555555', '#777777']),
+                    type: 'smoke'
+                });
+            }
+        }
+
+        // 更新爆炸粒子
+        function updateExplosionParticles() {
+            for (let i = bombAnimation.explosionParticles.length - 1; i >= 0; i--) {
+                let particle = bombAnimation.explosionParticles[i];
+
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+
+                // 根据粒子类型应用不同的物理效果
+                if (particle.type === 'fire') {
+                    particle.vy += 0.05; // 轻微重力
+                    particle.vx *= 0.95; // 较强阻力
+                    particle.size *= 0.97; // 快速缩小
+                } else if (particle.type === 'debris') {
+                    particle.vy += 0.15; // 中等重力
+                    particle.vx *= 0.98; // 中等阻力
+                    particle.size *= 0.98; // 中等缩小
+                } else if (particle.type === 'spark') {
+                    particle.vy += 0.2; // 强重力
+                    particle.vx *= 0.99; // 轻微阻力
+                    particle.size *= 0.95; // 快速缩小
+                } else if (particle.type === 'smoke') {
+                    particle.vy -= 0.02; // 向上飘
+                    particle.vx *= 0.99; // 轻微阻力
+                    particle.size *= 1.01; // 逐渐变大
+                }
+
+                particle.life--;
+
+                if (particle.life <= 0 || particle.size < 1 || particle.size > 60) {
+                    bombAnimation.explosionParticles.splice(i, 1);
+                }
+            }
+        }
+
+        // 绘制爆炸粒子
+        function drawExplosionParticles() {
+            // 按类型分层绘制，确保视觉层次
+            let types = ['smoke', 'fire', 'debris', 'spark'];
+
+            for (let type of types) {
+                for (let particle of bombAnimation.explosionParticles) {
+                    if (particle.type === type) {
+                        let alpha = map(particle.life, 0, particle.maxLife, 0, 255);
+
+                        if (type === 'smoke') {
+                            // 烟雾效果：半透明，较大
+                            alpha *= 0.3; // 更透明
+                            fill(red(particle.color), green(particle.color), blue(particle.color), alpha);
+                            noStroke();
+                            circle(particle.x, particle.y, particle.size);
+                        } else if (type === 'fire') {
+                            // 火焰效果：发光效果
+                            fill(red(particle.color), green(particle.color), blue(particle.color), alpha);
+                            noStroke();
+                            circle(particle.x, particle.y, particle.size);
+
+                            // 内部亮核
+                            fill(255, 255, 200, alpha * 0.8);
+                            circle(particle.x, particle.y, particle.size * 0.6);
+                        } else if (type === 'debris') {
+                            // 碎片效果：实心
+                            fill(red(particle.color), green(particle.color), blue(particle.color), alpha);
+                            noStroke();
+                            circle(particle.x, particle.y, particle.size);
+                        } else if (type === 'spark') {
+                            // 火花效果：明亮的小点
+                            fill(red(particle.color), green(particle.color), blue(particle.color), alpha);
+                            noStroke();
+                            circle(particle.x, particle.y, particle.size);
+
+                            // 火花拖尾效果
+                            stroke(255, 255, 255, alpha * 0.5);
+                            strokeWeight(1);
+                            line(particle.x, particle.y,
+                                particle.x - particle.vx * 2, particle.y - particle.vy * 2);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 启动方块粉碎动画
+        function startBlockShatterAnimation() {
+            blockShatterAnimation.active = true;
+            blockShatterAnimation.startTime = millis();
+            blockShatterAnimation.particles = [];
+            blockShatterAnimation.gridFadeBlocks = [];
+
+            // 为每个已放置的方块创建粉碎粒子和淡出效果
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    if (gameGrid[i][j] > 0) {
+                        // 创建粉碎粒子
+                        createBlockShatterParticles(j, i, gameGrid[i][j]);
+
+                        // 创建网格淡出方块
+                        blockShatterAnimation.gridFadeBlocks.push({
+                            gridX: j,
+                            gridY: i,
+                            colorIndex: gameGrid[i][j],
+                            alpha: 255,
+                            fadeSpeed: random(0.8, 1.2) // 不同方块淡出速度略有差异
+                        });
+                    }
+                }
+            }
+
+            // 播放粉碎音效
+            playShatterSound();
+        }
+
+        // 创建方块粉碎粒子 - 向四个方向强力喷发
+        function createBlockShatterParticles(gridX, gridY, colorIndex) {
+            let centerX = GRID_OFFSET_X + gridX * CELL_SIZE + CELL_SIZE / 2;
+            let centerY = GRID_OFFSET_Y + gridY * CELL_SIZE + CELL_SIZE / 2;
+            let blockColor = BLOCK_COLORS[colorIndex - 1];
+
+            // 创建四个主要方向的强力喷发
+            let directions = [
+                { angle: 0, name: 'right' },      // 右
+                { angle: PI, name: 'left' },      // 左
+                { angle: -PI / 2, name: 'up' },     // 上
+                { angle: PI / 2, name: 'down' }     // 下
+            ];
+
+            // 每个方向创建强力喷发粒子
+            directions.forEach(dir => {
+                for (let i = 0; i < 6; i++) {
+                    let angleVariation = random(-PI / 6, PI / 6); // ±30度变化
+                    let finalAngle = dir.angle + angleVariation;
+                    let speed = random(4, 12); // 更强的喷发速度
+                    let size = random(4, 12);
+
+                    blockShatterAnimation.particles.push({
+                        x: centerX + random(-CELL_SIZE / 6, CELL_SIZE / 6),
+                        y: centerY + random(-CELL_SIZE / 6, CELL_SIZE / 6),
+                        vx: cos(finalAngle) * speed,
+                        vy: sin(finalAngle) * speed,
+                        size: size,
+                        life: 180, // 3秒寿命
+                        maxLife: 180,
+                        color: blockColor,
+                        rotation: 0,
+                        rotationSpeed: random(-0.15, 0.15),
+                        direction: dir.name,
+                        initialSpeed: speed
+                    });
+                }
+            });
+
+            // 额外创建一些随机方向的碎片增加混乱感
+            for (let i = 0; i < 8; i++) {
+                let angle = random(0, TWO_PI);
+                let speed = random(2, 8);
+                let size = random(2, 6);
+
+                blockShatterAnimation.particles.push({
+                    x: centerX + random(-CELL_SIZE / 4, CELL_SIZE / 4),
+                    y: centerY + random(-CELL_SIZE / 4, CELL_SIZE / 4),
+                    vx: cos(angle) * speed,
+                    vy: sin(angle) * speed,
+                    size: size,
+                    life: 150,
+                    maxLife: 150,
+                    color: blockColor,
+                    rotation: 0,
+                    rotationSpeed: random(-0.1, 0.1),
+                    direction: 'random',
+                    initialSpeed: speed
+                });
+            }
+        }
+
+        // 更新方块粉碎动画 - 强力四方向喷发 + 淡出效果
+        function updateBlockShatterAnimation() {
+            let currentTime = millis() - blockShatterAnimation.startTime;
+
+            // 更新粉碎粒子
+            for (let i = blockShatterAnimation.particles.length - 1; i >= 0; i--) {
+                let particle = blockShatterAnimation.particles[i];
+
+                // 根据方向应用不同的物理效果
+                if (particle.direction === 'up') {
+                    // 向上喷发：持续向上加速，对抗重力
+                    particle.vy -= 0.08; // 向上加速
+                    particle.vx *= 0.99; // 轻微水平阻力
+                } else if (particle.direction === 'down') {
+                    // 向下喷发：重力加速
+                    particle.vy += 0.12; // 重力加速
+                    particle.vx *= 0.99; // 轻微水平阻力
+                } else if (particle.direction === 'left') {
+                    // 向左喷发：持续向左加速
+                    particle.vx -= 0.06; // 向左加速
+                    particle.vy += 0.03; // 轻微重力
+                } else if (particle.direction === 'right') {
+                    // 向右喷发：持续向右加速
+                    particle.vx += 0.06; // 向右加速
+                    particle.vy += 0.03; // 轻微重力
+                } else {
+                    // 随机方向：正常物理
+                    particle.vy += 0.05; // 重力
+                    particle.vx *= 0.98; // 阻力
+                    particle.vy *= 0.98;
+                }
+
+                // 更新位置
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+
+                // 旋转加速（越来越快）
+                particle.rotationSpeed *= 1.01;
+                particle.rotation += particle.rotationSpeed;
+
+                // 粒子逐渐变小
+                particle.size *= 0.998;
+
+                // 生命值递减
+                particle.life--;
+
+                // 移除死亡粒子或飞出屏幕的粒子
+                if (particle.life <= 0 || particle.size < 0.5 ||
+                    particle.x < -100 || particle.x > CANVAS_WIDTH + 100 ||
+                    particle.y < -100 || particle.y > CANVAS_HEIGHT + 100) {
+                    blockShatterAnimation.particles.splice(i, 1);
+                }
+            }
+
+            // 更新网格方块淡出效果
+            for (let i = blockShatterAnimation.gridFadeBlocks.length - 1; i >= 0; i--) {
+                let fadeBlock = blockShatterAnimation.gridFadeBlocks[i];
+
+                // 计算淡出进度（0-1）
+                let fadeProgress = currentTime / blockShatterAnimation.fadeOutDuration;
+                fadeProgress = Math.min(fadeProgress, 1.0);
+
+                // 应用淡出速度差异
+                let adjustedProgress = fadeProgress * fadeBlock.fadeSpeed;
+                adjustedProgress = Math.min(adjustedProgress, 1.0);
+
+                // 计算当前透明度（从255到0）
+                fadeBlock.alpha = 255 * (1 - adjustedProgress);
+
+                // 如果完全透明，移除这个方块
+                if (fadeBlock.alpha <= 0) {
+                    blockShatterAnimation.gridFadeBlocks.splice(i, 1);
+                }
+            }
+
+            // 检查动画是否结束（所有粒子和淡出方块都消失）
+            if ((blockShatterAnimation.particles.length === 0 &&
+                blockShatterAnimation.gridFadeBlocks.length === 0) ||
+                currentTime > blockShatterAnimation.duration) {
+                blockShatterAnimation.active = false;
+                blockShatterAnimation.particles = [];
+                blockShatterAnimation.gridFadeBlocks = [];
+
+                // 动画结束后真正开始新游戏
+                actuallyStartNewGame();
+            }
+        }
+
+        // 绘制方块粉碎动画 - 增强视觉效果
+        function drawBlockShatterAnimation() {
+            for (let particle of blockShatterAnimation.particles) {
+                let alpha = map(particle.life, 0, particle.maxLife, 0, 255);
+
+                push();
+                translate(particle.x, particle.y);
+                rotate(particle.rotation);
+
+                // 主要粒子
+                fill(red(particle.color), green(particle.color), blue(particle.color), alpha);
+                noStroke();
+                rect(-particle.size / 2, -particle.size / 2, particle.size, particle.size);
+
+                // 添加发光效果
+                if (particle.direction !== 'random') {
+                    fill(255, 255, 255, alpha * 0.3);
+                    rect(-particle.size / 3, -particle.size / 3, particle.size * 0.66, particle.size * 0.66);
+                }
+
+                // 添加运动轨迹
+                if (particle.direction !== 'random') {
+                    stroke(red(particle.color), green(particle.color), blue(particle.color), alpha * 0.5);
+                    strokeWeight(1);
+                    line(0, 0, -particle.vx * 3, -particle.vy * 3);
+                }
+
+                pop();
+            }
+        }
+
+        // 播放强力粉碎音效
+        function playShatterSound() {
+            if (!soundEnabled || !audioContext) return;
+
+            // 主要的爆炸粉碎声
+            const mainOsc = audioContext.createOscillator();
+            const mainGain = audioContext.createGain();
+            const mainFilter = audioContext.createBiquadFilter();
+
+            mainOsc.connect(mainFilter);
+            mainFilter.connect(mainGain);
+            mainGain.connect(audioContext.destination);
+
+            // 低频轰鸣声
+            mainOsc.frequency.setValueAtTime(60, audioContext.currentTime);
+            mainOsc.frequency.exponentialRampToValueAtTime(30, audioContext.currentTime + 0.8);
+
+            mainFilter.type = 'lowpass';
+            mainFilter.frequency.setValueAtTime(200, audioContext.currentTime);
+
+            mainGain.gain.setValueAtTime(0.3, audioContext.currentTime);
+            mainGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8);
+
+            mainOsc.type = 'sawtooth';
+            mainOsc.start(audioContext.currentTime);
+            mainOsc.stop(audioContext.currentTime + 0.8);
+
+            // 多层破碎声效
+            for (let i = 0; i < 8; i++) {
+                setTimeout(() => {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    const filter = audioContext.createBiquadFilter();
+
+                    oscillator.connect(filter);
+                    filter.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+
+                    // 高频破碎声，频率更高更尖锐
+                    let startFreq = 1000 + Math.random() * 800;
+                    let endFreq = 200 + Math.random() * 300;
+
+                    oscillator.frequency.setValueAtTime(startFreq, audioContext.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(endFreq, audioContext.currentTime + 0.4);
+
+                    // 高通滤波器
+                    filter.type = 'highpass';
+                    filter.frequency.setValueAtTime(400, audioContext.currentTime);
+
+                    gainNode.gain.setValueAtTime(0.08, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+
+                    oscillator.type = 'square';
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.4);
+                }, i * 30);
+            }
+
+            // 添加白噪声爆炸效果
+            setTimeout(() => {
+                const bufferSize = audioContext.sampleRate * 0.3;
+                const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+                const data = buffer.getChannelData(0);
+
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.5);
+                }
+
+                const source = audioContext.createBufferSource();
+                const noiseGain = audioContext.createGain();
+                const noiseFilter = audioContext.createBiquadFilter();
+
+                source.buffer = buffer;
+                source.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(audioContext.destination);
+
+                noiseFilter.type = 'bandpass';
+                noiseFilter.frequency.setValueAtTime(800, audioContext.currentTime);
+
+                noiseGain.gain.setValueAtTime(0.15, audioContext.currentTime);
+                noiseGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+                source.start(audioContext.currentTime);
+            }, 100);
+        }
+
+        // 更新UI
+        function updateUI() {
+            document.getElementById('score').textContent = currentScore;
+            document.getElementById('remaining-space').textContent = getRemainingSpace();
+
+            if (gameOver) {
+                document.getElementById('game-over-message').style.display = 'block';
+            } else {
+                document.getElementById('game-over-message').style.display = 'none';
+            }
+        }
+
+        // 更新方块模式按钮状态
+        function updateBlockModeButtons() {
+            // 更新欢迎界面的按钮
+            document.getElementById('normal-btn').classList.toggle('active', currentBlockMode === 'normal');
+            document.getElementById('more-btn').classList.toggle('active', currentBlockMode === 'more');
+
+            // 更新游戏结束覆盖层的按钮
+            document.getElementById('normal-btn-overlay').classList.toggle('active', currentBlockMode === 'normal');
+            document.getElementById('more-btn-overlay').classList.toggle('active', currentBlockMode === 'more');
+        }
+
+        // 计算剩余空间
+        function getRemainingSpace() {
+            let count = 0;
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    if (gameGrid[i][j] === 0) count++;
+                }
+            }
+            return count;
+        }
+
+        // Start game
+        function startGame() {
+            console.log('startGame called - User Agent:', navigator.userAgent);
+            console.log('IS_IOS:', IS_IOS, 'IS_MOBILE:', IS_MOBILE);
+
+            try {
+                // iOS音频上下文修复 - 强制恢复
+                if (audioContext) {
+                    if (audioContext.state === 'suspended') {
+                        console.log('Resuming suspended AudioContext...');
+                        audioContext.resume().then(() => {
+                            console.log("AudioContext resumed successfully from startGame()");
+                        }).catch(err => {
+                            console.error("Failed to resume AudioContext:", err);
+                        });
+                    }
+                }
+
+                // Play cute start game sound (with error handling)
+                try {
+                    playStartGameSound();
+                } catch (soundError) {
+                    console.log('Sound play failed:', soundError);
+                }
+
+                // 强制隐藏欢迎界面
+                const welcomeScreen = document.getElementById('welcome-screen');
+                if (welcomeScreen) {
+                    welcomeScreen.style.display = 'none';
+                    welcomeScreen.classList.add('hidden');
+                }
+
+                // 强制隐藏游戏结束覆盖层
+                const gameOverOverlay = document.getElementById('game-over-overlay');
+                if (gameOverOverlay) {
+                    gameOverOverlay.style.display = 'none';
+                    gameOverOverlay.classList.remove('show');
+                }
+
+                // 如果游戏已结束且网格中有方块，启动粉碎动画
+                if (gameOver && hasBlocksOnGrid()) {
+                    console.log('Starting block shatter animation...');
+                    startBlockShatterAnimation();
+                    // actuallyStartNewGame() 会在动画结束后被调用
+                } else {
+                    // 直接开始新游戏
+                    console.log('Starting new game directly...');
+                    actuallyStartNewGame();
+                }
+
+                console.log('startGame completed successfully');
+            } catch (error) {
+                console.error('Error in startGame:', error);
+                // 即使出错也要尝试开始游戏
+                actuallyStartNewGame();
+            }
+        }
+
+        // 实际开始新游戏（在动画结束后调用）
+        function actuallyStartNewGame() {
+            console.log('Game starting');
+            gameStarted = true;
+            gameOver = false;
+            initializeGame();
+            generateNewBlocks();
+
+            // 确保界面状态正确
+            document.getElementById('welcome-screen').classList.add('hidden');
+            document.getElementById('game-over-overlay').classList.remove('show');
+
+            console.log('Game started successfully');
+        }
+
+        // 检查网格中是否有方块
+        function hasBlocksOnGrid() {
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    if (gameGrid[i][j] > 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Reset game
+        function resetGame() {
+            gameStarted = false;
+            gameOver = false;
+            initializeGame();
+
+            // 显示欢迎界面
+            document.getElementById('welcome-screen').classList.remove('hidden');
+
+            // 隐藏游戏结束覆盖层
+            document.getElementById('game-over-overlay').classList.remove('show');
+
+            // 更新按钮状态
+            updateBlockModeButtons();
+        }
+
+        // Toggle sound
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const soundText = soundEnabled ? 'Sound: On' : 'Sound: Off';
+
+            // 更新所有音效按钮
+            document.getElementById('sound-btn').textContent = soundText;
+
+            // 更新游戏结束覆盖层中的音效状态
+            const soundStatus = document.getElementById('sound-status');
+            if (soundStatus) {
+                soundStatus.textContent = soundEnabled ? 'On' : 'Off';
+            }
+
+            // If sound is enabled but AudioContext is not initialized, initialize it
+            if (soundEnabled && !audioContext) {
+                initAudio();
+            }
+        }
+
+        // Generate new blocks
+        function generateNewBlocks() {
+            currentBlocks = [];
+            let shapes = getCurrentBlockShapes();
+
+            for (let i = 0; i < 3; i++) {
+                let shapeIndex = Math.floor(Math.random() * shapes.length);
+                let colorIndex = Math.floor(Math.random() * BLOCK_COLORS.length);
+
+                currentBlocks.push({
+                    shape: shapes[shapeIndex],
+                    color: BLOCK_COLORS[colorIndex],
+                    colorIndex: colorIndex + 1
+                });
+            }
+        }
+
+        // Set block mode
+        function setBlockMode(mode) {
+            currentBlockMode = mode;
+
+            // 更新所有界面的按钮状态
+            updateBlockModeButtons();
+
+            // If game is started, generate new blocks with the new mode
+            if (gameStarted && !gameOver) {
+                generateNewBlocks();
+            }
+
+            // Play a mode switch sound
+            playModeSwitch();
+        }
+
+        // Play mode switch sound
+        function playModeSwitch() {
+            if (!soundEnabled || !audioContext) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // Quick beep sound
+            oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.1);
+
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+            oscillator.type = 'sine';
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        // Mouse pressed event (移动设备触摸事件也会触发这个)
+        function mousePressed() {
+            if (!gameStarted || gameOver) return;
+
+            // Check if clicked on available blocks - use same position calculation as draw function
+            if (IS_MOBILE) {
+                // 移动设备：检查下方水平排列的方块，使用与绘制相同的位置计算
+                let gridBottom = GRID_OFFSET_Y + GRID_SIZE * CELL_SIZE;
+                let blockAreaY = gridBottom + 30;
+
+                let gridLeft = GRID_OFFSET_X;
+                let gridRight = GRID_OFFSET_X + GRID_SIZE * CELL_SIZE;
+                let availableWidth = gridRight - gridLeft;
+                let blockSpacing = availableWidth / 3;
+
+                for (let i = 0; i < currentBlocks.length; i++) {
+                    if (currentBlocks[i]) {
+                        let blockWidth = currentBlocks[i].shape[0].length * CELL_SIZE;
+                        let blockHeight = currentBlocks[i].shape.length * CELL_SIZE;
+                        let blockX = gridLeft + (i * blockSpacing) + (blockSpacing - blockWidth) / 2;
+                        let blockY = blockAreaY;
+
+                        if (mouseX >= blockX && mouseX <= blockX + blockWidth &&
+                            mouseY >= blockY && mouseY <= blockY + blockHeight) {
+                            selectedBlock = currentBlocks[i];
+                            dragOffset.x = blockX - mouseX;
+                            dragOffset.y = blockY - mouseY;
+
+                            // 手机版：设置上移距离，避免手指遮挡
+                            mobileBlockOffset = -CELL_SIZE * 2; // 上移两个方块的距离
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // 桌面设备：检查右侧垂直排列的方块
+                let startX = GRID_OFFSET_X + GRID_SIZE * CELL_SIZE + 40;
+                let startY = GRID_OFFSET_Y;
+                let gridHeight = GRID_SIZE * CELL_SIZE;
+
+                let positions = [
+                    startY + gridHeight * 0.1,
+                    startY + gridHeight * 0.4,
+                    startY + gridHeight * 0.7
+                ];
+
+                for (let i = 0; i < currentBlocks.length; i++) {
+                    if (currentBlocks[i]) {
+                        let blockX = startX;
+                        let blockY = positions[i];
+                        let blockWidth = currentBlocks[i].shape[0].length * CELL_SIZE;
+                        let blockHeight = currentBlocks[i].shape.length * CELL_SIZE;
+
+                        if (mouseX >= blockX && mouseX <= blockX + blockWidth &&
+                            mouseY >= blockY && mouseY <= blockY + blockHeight) {
+                            selectedBlock = currentBlocks[i];
+                            dragOffset.x = blockX - mouseX;
+                            dragOffset.y = blockY - mouseY;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Mouse released event
+        function mouseReleased() {
+            if (selectedBlock) {
+                // Find best placement position (80% overlap rule)
+                let bestPosition = findBestPlacement(selectedBlock);
+
+                if (bestPosition) {
+                    placeBlock(selectedBlock, bestPosition.x, bestPosition.y);
+
+                    // Play placement sound effect
+                    playPlaceSound();
+
+                    // Remove from available blocks
+                    for (let i = 0; i < currentBlocks.length; i++) {
+                        if (currentBlocks[i] === selectedBlock) {
+                            currentBlocks[i] = null;
+                            break;
+                        }
+                    }
+
+                    // Check for clearing
+                    checkAndClearLines();
+
+                    // Check if need to generate new blocks
+                    if (currentBlocks.every(block => block === null)) {
+                        generateNewBlocks();
+                    }
+
+                    // Check if game is over
+                    checkGameOver();
+                }
+
+                selectedBlock = null;
+                mobileBlockOffset = 0; // 重置移动偏移
+            }
+        }
+
+        // Find best placement position (80% overlap rule)
+        function findBestPlacement(block) {
+            // Calculate block's current position on screen
+            // 手机版：考虑方块上移的偏移量
+            let blockScreenX = mouseX + dragOffset.x;
+            let blockScreenY = mouseY + dragOffset.y + (IS_MOBILE ? mobileBlockOffset : 0);
+
+            // Calculate block dimensions
+            let blockWidth = block.shape[0].length * CELL_SIZE;
+            let blockHeight = block.shape.length * CELL_SIZE;
+
+            let bestOverlap = 0;
+            let bestPosition = null;
+
+            // Iterate through all possible grid positions
+            for (let gridY = 0; gridY <= GRID_SIZE - block.shape.length; gridY++) {
+                for (let gridX = 0; gridX <= GRID_SIZE - block.shape[0].length; gridX++) {
+
+                    // Check if this position can place the block
+                    if (!canPlaceBlock(block, gridX, gridY)) continue;
+
+                    // Calculate this grid position's screen coordinates
+                    let gridScreenX = GRID_OFFSET_X + gridX * CELL_SIZE;
+                    let gridScreenY = GRID_OFFSET_Y + gridY * CELL_SIZE;
+
+                    // Calculate overlap area
+                    let overlapArea = calculateOverlap(
+                        blockScreenX, blockScreenY, blockWidth, blockHeight,
+                        gridScreenX, gridScreenY, blockWidth, blockHeight
+                    );
+
+                    // Calculate overlap percentage
+                    let overlapPercentage = overlapArea / (blockWidth * blockHeight);
+
+                    // If overlap exceeds 80%, record this position
+                    if (overlapPercentage > bestOverlap) {
+                        bestOverlap = overlapPercentage;
+                        bestPosition = { x: gridX, y: gridY };
+                    }
+                }
+            }
+
+            // If best overlap exceeds 80%, return best position
+            return bestOverlap >= 0.8 ? bestPosition : null;
+        }
+
+        // Calculate overlap area of two rectangles
+        function calculateOverlap(x1, y1, w1, h1, x2, y2, w2, h2) {
+            let left = Math.max(x1, x2);
+            let right = Math.min(x1 + w1, x2 + w2);
+            let top = Math.max(y1, y2);
+            let bottom = Math.min(y1 + h1, y2 + h2);
+
+            if (left < right && top < bottom) {
+                return (right - left) * (bottom - top);
+            }
+            return 0;
+        }
+
+        // Check if block can be placed
+        function canPlaceBlock(block, gridX, gridY) {
+            // Check boundaries
+            if (gridX < 0 || gridY < 0) return false;
+            if (gridX + block.shape[0].length > GRID_SIZE) return false;
+            if (gridY + block.shape.length > GRID_SIZE) return false;
+
+            // Check collision
+            for (let i = 0; i < block.shape.length; i++) {
+                for (let j = 0; j < block.shape[i].length; j++) {
+                    if (block.shape[i][j] === 1) {
+                        let newX = gridX + j;
+                        let newY = gridY + i;
+
+                        if (gameGrid[newY][newX] !== 0) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        // 放置方块到网格
+        function placeBlock(block, gridX, gridY) {
+            for (let i = 0; i < block.shape.length; i++) {
+                for (let j = 0; j < block.shape[i].length; j++) {
+                    if (block.shape[i][j] === 1) {
+                        gameGrid[gridY + i][gridX + j] = block.colorIndex;
+                    }
+                }
+            }
+
+            // 4. 大型方块奖励
+            let blockBonus = calculateBlockSizeBonus(block);
+            if (blockBonus > 0) {
+                currentScore += blockBonus;
+                console.log(`大型方块奖励: +${blockBonus}分`);
+            }
+        }
+
+        // 计算方块大小奖励
+        function calculateBlockSizeBonus(block) {
+            let height = block.shape.length;
+            let width = block.shape[0].length;
+            let cellCount = 0;
+
+            // 计算实际方块数量
+            for (let i = 0; i < height; i++) {
+                for (let j = 0; j < width; j++) {
+                    if (block.shape[i][j] === 1) {
+                        cellCount++;
+                    }
+                }
+            }
+
+            // 3×3 方块 → +5 分
+            if (height === 3 && width === 3 && cellCount === 9) {
+                return 5;
+            }
+
+            // 4×1、1×4 或更大的长条 → +3 分
+            if ((height >= 4 && width === 1) || (height === 1 && width >= 4)) {
+                return 3;
+            }
+
+            // 其他大型方块（超过4个单元格）→ +2 分
+            if (cellCount >= 5) {
+                return 2;
+            }
+
+            return 0;
+        }
+
+        // 检查并清除完整的行/列 - 新打分系统
+        function checkAndClearLines() {
+            let linesToClear = [];
+
+            // 检查行
+            for (let i = 0; i < GRID_SIZE; i++) {
+                let fullRow = true;
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    if (gameGrid[i][j] === 0) {
+                        fullRow = false;
+                        break;
+                    }
+                }
+
+                if (fullRow) {
+                    linesToClear.push({ type: 'row', index: i });
+                }
+            }
+
+            // 检查列
+            for (let j = 0; j < GRID_SIZE; j++) {
+                let fullCol = true;
+                for (let i = 0; i < GRID_SIZE; i++) {
+                    if (gameGrid[i][j] === 0) {
+                        fullCol = false;
+                        break;
+                    }
+                }
+
+                if (fullCol) {
+                    linesToClear.push({ type: 'col', index: j });
+                }
+            }
+
+            // 如果有要清除的行/列，启动动画并计算得分
+            if (linesToClear.length > 0) {
+                clearingAnimation.active = true;
+                clearingAnimation.linesToClear = linesToClear;
+                clearingAnimation.currentStep = 0;
+                clearingAnimation.lastAnimationTime = millis();
+
+                // 播放消除音效
+                playClearSound();
+
+                // 新打分系统
+                calculateScore(linesToClear.length);
+                updateUI();
+
+                // 更新连续清除状态
+                lastRoundCleared = true;
+                consecutiveClearRounds++;
+            } else {
+                // 本回合没有清除，重置连续清除计数
+                if (lastRoundCleared) {
+                    consecutiveClearRounds = 0;
+                }
+                lastRoundCleared = false;
+            }
+        }
+
+        // 新的打分计算函数
+        function calculateScore(linesCleared) {
+            // 1. 基础分数：每行/列 +10 分
+            let baseScore = linesCleared * 10;
+
+            // 2. 连击加分（Combo Bonus）
+            let comboBonus = 0;
+            if (linesCleared >= 2) {
+                comboBonus = (linesCleared - 1) * 10; // 每多1条线 +10分
+            }
+
+            // 3. 连续回合清除倍数（Chain Bonus）
+            let chainMultiplier = 1.0;
+            if (consecutiveClearRounds >= 4) {
+                chainMultiplier = 2.0;
+            } else if (consecutiveClearRounds >= 3) {
+                chainMultiplier = 1.5;
+            } else if (consecutiveClearRounds >= 2) {
+                chainMultiplier = 1.2;
+            }
+
+            // 计算最终得分
+            let roundScore = Math.floor((baseScore + comboBonus) * chainMultiplier);
+            currentScore += roundScore;
+
+            // 显示得分详情（可选）
+            console.log(`得分详情: 基础${baseScore} + 连击${comboBonus} × 倍数${chainMultiplier} = ${roundScore}`);
+        }
+
+        // 检查游戏是否结束
+        function checkGameOver() {
+            for (let block of currentBlocks) {
+                if (block && canPlaceAnyWhere(block)) {
+                    return; // 还有方块可以放置
+                }
+            }
+
+            // 没有方块可以放置，游戏结束
+            gameOver = true;
+
+            // 5. 游戏结束奖励
+            let remainingSpaces = getRemainingSpace();
+            if (remainingSpaces < 10) {
+                let endGameBonus = 20;
+                currentScore += endGameBonus;
+                console.log(`极限坚持奖励: +${endGameBonus}分 (剩余空格: ${remainingSpaces})`);
+            }
+
+            startBombAnimation(); // 启动炸弹爆炸动画
+            updateUI();
+        }
+
+        // 检查方块是否可以放置在网格的任何位置
+        function canPlaceAnyWhere(block) {
+            for (let i = 0; i <= GRID_SIZE - block.shape.length; i++) {
+                for (let j = 0; j <= GRID_SIZE - block.shape[0].length; j++) {
+                    if (canPlaceBlock(block, j, i)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        // 页面加载处理
+        window.addEventListener('load', function () {
+            console.log('Window loaded');
+
+            // 处理设备方向变化
+            window.addEventListener('orientationchange', function () {
+                console.log('Orientation changed');
+                setTimeout(() => {
+                    calculateResponsiveDimensions();
+                    if (typeof resizeCanvas === 'function') {
+                        resizeCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+                    }
+                }, 300);
+            });
+        });
+
+        // p5.js预加载函数（iOS需要）
+        function preload() {
+            console.log('p5.js preload called');
+        }
+
+        // 移除p5.js触摸事件函数，改用原生事件处理
+
+        // DOM加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('DOM Content Loaded');
+
+            // iOS兼容性设置
+            if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                console.log('iOS device detected, applying iOS-specific fixes');
+                document.body.style.webkitUserSelect = 'none';
+                document.body.style.webkitTouchCallout = 'none';
+                document.body.style.webkitTapHighlightColor = 'transparent';
+
+                // iOS按钮点击修复
+                const buttons = document.querySelectorAll('button');
+                buttons.forEach(button => {
+                    console.log('Adding iOS touch fix to button:', button.textContent);
+
+                    // 添加触摸开始事件
+                    button.addEventListener('touchstart', function (e) {
+                        console.log('Button touchstart:', this.textContent);
+                        this.style.backgroundColor = '#45a049'; // 视觉反馈
+                        e.stopPropagation(); // 防止事件冒泡
+                    }, { passive: true });
+
+                    // 添加触摸结束事件
+                    button.addEventListener('touchend', function (e) {
+                        console.log('Button touchend:', this.textContent);
+                        this.style.backgroundColor = ''; // 恢复原色
+
+                        // 手动触发点击事件
+                        setTimeout(() => {
+                            this.click();
+                        }, 10);
+
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, { passive: false });
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>
