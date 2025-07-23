@@ -685,6 +685,58 @@
         let dragOffset = { x: 0, y: 0 };
         let mobileBlockOffset = 0; // 手机版方块上移距离
 
+        // iOS游戏结束检测机制
+        let iosGameOverCheckInterval = null;
+        let gameOverDisplayed = false; // 跟踪游戏结束界面是否已显示
+
+        // iOS专用：强制显示游戏结束界面的函数
+        function forceShowGameOverForIOS() {
+            if (!IS_IOS || !gameOver || gameOverDisplayed) return;
+            
+            console.log('iOS: Force showing game over overlay');
+            const overlay = document.getElementById('game-over-overlay');
+            if (overlay) {
+                // 使用最强力的显示方法
+                overlay.style.cssText = 'position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; background-color: rgba(0, 0, 0, 0.8) !important; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; z-index: 1000 !important; visibility: visible !important; opacity: 1 !important;';
+                overlay.classList.add('show');
+                
+                // 确保所有按钮可见
+                const buttons = overlay.querySelectorAll('button');
+                buttons.forEach(button => {
+                    button.style.cssText = 'display: inline-block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important;';
+                });
+                
+                gameOverDisplayed = true;
+                console.log('iOS: Game over overlay forced to display');
+            }
+        }
+
+        // 启动iOS游戏结束检测
+        function startIOSGameOverCheck() {
+            if (!IS_IOS) return;
+            
+            // 清除之前的检测
+            if (iosGameOverCheckInterval) {
+                clearInterval(iosGameOverCheckInterval);
+            }
+            
+            // 每500ms检查一次游戏状态
+            iosGameOverCheckInterval = setInterval(() => {
+                if (gameOver && !gameOverDisplayed) {
+                    console.log('iOS: Game over detected, forcing display');
+                    forceShowGameOverForIOS();
+                }
+            }, 500);
+        }
+
+        // 停止iOS游戏结束检测
+        function stopIOSGameOverCheck() {
+            if (iosGameOverCheckInterval) {
+                clearInterval(iosGameOverCheckInterval);
+                iosGameOverCheckInterval = null;
+            }
+        }
+
         // 动画系统
         let clearingAnimation = {
             active: false,
@@ -1459,9 +1511,19 @@
             try {
                 const gameOverOverlay = document.getElementById('game-over-overlay');
                 if (gameOverOverlay) {
-                    // 确保覆盖层可见
-                    gameOverOverlay.style.display = 'flex';
+                    // iOS强力修复：多种方式确保显示
+                    gameOverOverlay.style.display = 'flex !important';
+                    gameOverOverlay.style.visibility = 'visible';
+                    gameOverOverlay.style.opacity = '1';
+                    gameOverOverlay.style.zIndex = '1000';
                     gameOverOverlay.classList.add('show');
+                    
+                    // 强制重绘（iOS特殊处理）
+                    if (IS_IOS) {
+                        gameOverOverlay.style.transform = 'translateZ(0)';
+                        // 强制浏览器重新计算样式
+                        gameOverOverlay.offsetHeight;
+                    }
                     
                     // 更新音效按钮状态
                     const soundStatus = document.getElementById('sound-status');
@@ -1473,6 +1535,19 @@
                     updateBlockModeButtons();
                     
                     console.log('Game over overlay displayed successfully');
+                    
+                    // iOS额外检查：确保按钮可见
+                    if (IS_IOS) {
+                        setTimeout(() => {
+                            const buttons = gameOverOverlay.querySelectorAll('button');
+                            buttons.forEach(button => {
+                                button.style.display = 'inline-block';
+                                button.style.visibility = 'visible';
+                                button.style.opacity = '1';
+                            });
+                            console.log('iOS: Force button visibility');
+                        }, 50);
+                    }
                 } else {
                     console.error('Game over overlay element not found');
                 }
@@ -2156,12 +2231,17 @@
             console.log('Game starting');
             gameStarted = true;
             gameOver = false;
+            gameOverDisplayed = false; // 重置游戏结束显示状态
+            
             initializeGame();
             generateNewBlocks();
 
             // 确保界面状态正确
             document.getElementById('welcome-screen').classList.add('hidden');
             document.getElementById('game-over-overlay').classList.remove('show');
+
+            // 启动iOS游戏结束检测
+            startIOSGameOverCheck();
 
             console.log('Game started successfully');
         }
@@ -2615,21 +2695,45 @@
             startBombAnimation(); // 启动炸弹爆炸动画
             updateUI();
 
-            // iOS特殊处理：添加备用定时器确保游戏结束界面显示
+            // iOS特殊处理：多重备用机制确保游戏结束界面显示
             if (IS_IOS) {
-                console.log('iOS detected, setting backup timer for game over overlay');
+                console.log('iOS detected, setting multiple backup timers for game over overlay');
+                
+                // 备用机制1：500ms后检查
                 setTimeout(() => {
                     if (gameOver && !document.getElementById('game-over-overlay').classList.contains('show')) {
-                        console.log('iOS backup: Showing game over overlay');
+                        console.log('iOS backup 1: Showing game over overlay');
                         showGameOverOverlay();
                     }
-                }, 3000); // 3秒后备用显示
+                }, 500);
+                
+                // 备用机制2：1秒后强制检查
+                setTimeout(() => {
+                    if (gameOver) {
+                        console.log('iOS backup 2: Force showing game over overlay');
+                        showGameOverOverlay();
+                    }
+                }, 1000);
+                
+                // 备用机制3：2秒后最终检查
+                setTimeout(() => {
+                    if (gameOver) {
+                        console.log('iOS backup 3: Final force showing game over overlay');
+                        const overlay = document.getElementById('game-over-overlay');
+                        if (overlay) {
+                            overlay.style.display = 'flex !important';
+                            overlay.style.visibility = 'visible !important';
+                            overlay.style.opacity = '1 !important';
+                            overlay.classList.add('show');
+                        }
+                    }
+                }, 2000);
             }
 
-            // 额外的iOS修复：立即检查并显示游戏结束界面
+            // 通用修复：立即检查并显示游戏结束界面
             setTimeout(() => {
                 if (gameOver) {
-                    console.log('Additional iOS fix: Force showing game over overlay');
+                    console.log('Universal fix: Force showing game over overlay');
                     showGameOverOverlay();
                 }
             }, 100); // 100ms后立即检查
